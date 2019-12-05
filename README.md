@@ -2,6 +2,8 @@
 
 <img src="https://github.com/XJINE/Unity_CubemapCamera/blob/master/Screenshot.png" width="100%" height="auto" />
 
+CubemapCamera just makes Cubemap RenderTexture.
+
 ## Import to Your Project
 
 You can import this asset from UnityPackage.
