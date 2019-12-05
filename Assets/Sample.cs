@@ -5,10 +5,17 @@ public class Sample : MonoBehaviour
     [SerializeField]
     private RenderTexture cubemap;
 
-    public void OnUpdateCubemap(RenderTexture cubemap)
+    private CubemapCamera cubemapCamera;
+
+    public void Start()
     {
-        // NOTE:
-        // Set into CubemapCamera.OnUpdate.
-        this.cubemap = cubemap;
+        this.cubemapCamera = FindObjectOfType<CubemapCamera>();
+        this.cubemapCamera.Initialize();
+        this.cubemap = this.cubemapCamera.Cubemap;
+    }
+
+    public void Update()
+    {
+        this.cubemap = this.cubemapCamera.Cubemap;
     }
 }

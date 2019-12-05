@@ -2,7 +2,7 @@
 using UnityEngine.Events;
 
 [RequireComponent(typeof(Camera))]
-public class CubemapCamera : MonoBehaviour
+public class CubemapCamera : MonoBehaviour, IInitializable
 {
     [System.Flags]
     public enum FaceMask
@@ -20,13 +20,23 @@ public class CubemapCamera : MonoBehaviour
 
     #region Field
 
-    [SerializeField] protected int      resolution = 4096; // 2^
-    [SerializeField] protected int      depth      =   24; // 0, 16, 24
-    [SerializeField] protected FaceMask faceMask   = FaceMask.Right | FaceMask.Left
-                                                   | FaceMask.Top   | FaceMask.Bottom
-                                                   | FaceMask.Front | FaceMask.Back;
+    // NOTE:
+    // Call "InitializeCubemap" function after update these parameters.
+    // "protected serialized Backing Field" is not so good.
+    // We need to update and test from Inspector.
 
-    public TextureEvent OnUpdate;
+    // NOTE:
+    // Maybe the WarpMode or any other parameters are need not in here.
+    // Because these parameters are not important to use Cubemap.
+
+    [Range(0, 16384)] public int resolution = 4096; // 2^
+    [Range(0,    24)] public int depth      =   24; // 0, 16, 24
+    [Range(0,    16)] public int anisoLevel =   16; // 0 ~ 16,
+
+    public FilterMode filterMode = FilterMode.Trilinear;
+    public FaceMask   faceMask   = FaceMask.Right | FaceMask.Left
+                                 | FaceMask.Top   | FaceMask.Bottom
+                                 | FaceMask.Front | FaceMask.Back;
 
     private new Camera camera;
 
@@ -34,31 +44,7 @@ public class CubemapCamera : MonoBehaviour
 
     #region Property
 
-    public int Resolution
-    {
-        get { return this.resolution; }
-        set
-        {
-            if (value != 0 && value != this.resolution && Mathf.IsPowerOfTwo(value))
-            {
-                this.resolution = value;
-                InitializeCubemap();
-            }
-        }
-    }
-
-    public int Depth
-    {
-        get { return this.depth; }
-        set
-        {
-            if ((value == 0 || value == 16 || value == 24) && value != this.depth)
-            {
-                this.depth = value;
-                InitializeCubemap();
-            }
-        }
-    }
+    public bool IsInitialized { get; protected set; }
 
     public RenderTexture Cubemap { get; protected set; }
 
@@ -78,7 +64,11 @@ public class CubemapCamera : MonoBehaviour
         // Do not in Upddate().
 
         this.camera.RenderToCubemap(this.Cubemap, (int)this.faceMask);
-        this.OnUpdate.Invoke(this.Cubemap);
+
+        // NOTE:
+        // Some components may need to initialize with Cubemap texture.
+        // So the following event-driven code is not so good.
+        // this.onUpdateCubemap.Invoke(this.Cubemap);
     }
 
     protected virtual void OnDisable()
@@ -86,15 +76,45 @@ public class CubemapCamera : MonoBehaviour
         Destroy(this.Cubemap);
     }
 
+    public bool Initialize()
+    {
+        if (this.IsInitialized)
+        {
+            return false;
+        }
+
+        this.IsInitialized = true;
+
+        InitializeCubemap();
+
+        return true;
+    }
+
+    [ContextMenu("Initialize Cubemap")]
     public void InitializeCubemap()
     {
+        const int MaxResolution = 16384; // in DirectX 11, 12.
+        const int MinResolution =     2;
+        const int MaxDepth      =    24;
+        const int MinDepth      =     0;
+
+        this.resolution = (int) Mathf.Pow(2, Mathf.Ceil(Mathf.Log(this.resolution)/Mathf.Log(2)));
+        this.resolution = Mathf.Max(Mathf.Min(this.resolution, MaxResolution), MinResolution);
+
+        this.depth = this.depth / 16f < 0.5f ? 0 : this.depth / 16f < 1.25f ? 16 : 24;
+        this.depth = Mathf.Max(Mathf.Min(this.depth, MaxDepth), MinDepth);
+
         this.Cubemap = new RenderTexture(this.resolution,
                                          this.resolution,
                                          this.depth,
                                          RenderTextureFormat.ARGB32)
         {
-            dimension = UnityEngine.Rendering.TextureDimension.Cube,
-            hideFlags = HideFlags.HideAndDontSave
+            dimension        = UnityEngine.Rendering.TextureDimension.Cube,
+            hideFlags        = HideFlags.HideAndDontSave,
+            autoGenerateMips = false,
+            useMipMap        = false,
+            anisoLevel       = this.anisoLevel,
+            filterMode       = this.filterMode
         };
     }
 
