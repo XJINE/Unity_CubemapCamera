@@ -29,10 +29,11 @@ public class CubemapCamera : MonoBehaviour, IInitializable
     // Maybe the WarpMode or any other parameters are need not in here.
     // Because these parameters are not important to use Cubemap.
 
-    [Range(0, 16384)] public int resolution = 4096; // 2^
-    [Range(0,    24)] public int depth      =   24; // 0, 16, 24
-    [Range(0,    16)] public int anisoLevel =   16; // 0 ~ 16,
+    [Range(0, 16384)] public int  resolution = 4096; // 2^
+    [Range(0,    24)] public int  depth      =   24; // 0, 16, 24
+    [Range(0,    16)] public int  anisoLevel =   16; // 0 ~ 16,
 
+    public bool       mipmap     = false;
     public FilterMode filterMode = FilterMode.Trilinear;
     public FaceMask   faceMask   = FaceMask.Right | FaceMask.Left
                                  | FaceMask.Top   | FaceMask.Bottom
@@ -54,8 +55,7 @@ public class CubemapCamera : MonoBehaviour, IInitializable
 
     protected virtual void Awake()
     {
-        this.camera = GetComponent<Camera>();
-        this.InitializeCubemap();
+        this.Initialize();
     }
 
     protected virtual void LateUpdate()
@@ -85,6 +85,8 @@ public class CubemapCamera : MonoBehaviour, IInitializable
 
         this.IsInitialized = true;
 
+        this.camera = GetComponent<Camera>();
+
         InitializeCubemap();
 
         return true;
@@ -98,11 +100,17 @@ public class CubemapCamera : MonoBehaviour, IInitializable
         const int MaxDepth      =    24;
         const int MinDepth      =     0;
 
-        this.resolution = (int) Mathf.Pow(2, Mathf.Ceil(Mathf.Log(this.resolution)/Mathf.Log(2)));
+        //this.resolution = (int) Mathf.Pow(2, Mathf.Ceil(Mathf.Log(this.resolution)/Mathf.Log(2)));
         this.resolution = Mathf.Max(Mathf.Min(this.resolution, MaxResolution), MinResolution);
 
         this.depth = this.depth / 16f < 0.5f ? 0 : this.depth / 16f < 1.25f ? 16 : 24;
         this.depth = Mathf.Max(Mathf.Min(this.depth, MaxDepth), MinDepth);
+
+        if (this.Cubemap != null)
+        {
+            this.Cubemap.Release();
+            Destroy(this.Cubemap);
+        }
 
         this.Cubemap = new RenderTexture(this.resolution,
                                          this.resolution,
@@ -111,8 +119,8 @@ public class CubemapCamera : MonoBehaviour, IInitializable
         {
             dimension        = UnityEngine.Rendering.TextureDimension.Cube,
             hideFlags        = HideFlags.HideAndDontSave,
-            autoGenerateMips = false,
-            useMipMap        = false,
+            autoGenerateMips = this.mipmap,
+            useMipMap        = this.mipmap,
             anisoLevel       = this.anisoLevel,
             filterMode       = this.filterMode
         };
